@@ -1,3 +1,14 @@
+
+// ─── PROCESS ERROR HANDLERS ───────────────────────────────
+process.on("unhandledRejection", (err) => {
+  log.error("Unhandled Rejection:", err?.message || err);
+});
+
+process.on("uncaughtException", (err) => {
+  log.error("Uncaught Exception:", err?.message || err);
+  process.exit(1);
+});
+
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
@@ -147,7 +158,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // ─── REQUEST ID MIDDLEWARE ────────────────────────────────
 app.use((req, _res, next) => {
-  req.id = req.headers["x-request-id"] || Math.random().toString(36).slice(2, 10);
+  req.id = req.headers["x-request-id"] ?? crypto.randomUUID();
   next();
 });
 
@@ -321,7 +332,7 @@ app.post("/internal/image/generate", (_req, res) => res.json({ image: null, engi
 
 // ─── CENTRALIZED ERROR MIDDLEWARE ────────────────────────
 app.use((err, req, res, next) => {
-  const requestId = req.headers["x-request-id"] || "unknown";
+  const requestId = req.id || "unknown";
   log.error(`[${requestId}] Unhandled error: ${err.message}`);
   if (res.headersSent) return next(err);
   res.status(500).json({
