@@ -6,4 +6,6 @@ logs/
 certbot/
 __pycache__/
 *.pyc
+*.py
 .DS_Store
+package.json.broken
