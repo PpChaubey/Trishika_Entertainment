@@ -14,7 +14,7 @@ const CONFIG = {
   groqKey:    process.env.GROQ_API_KEY || null,
   ollamaUrl:  process.env.OLLAMA_URL   || "http://localhost:11434/api/chat",
   model:      process.env.MODEL        || "llama3.1:8b",
-  rateLimit:  parseInt(process.env.RATE_LIMIT  || "20"),
+  rateLimit:  parseInt(process.env.RATE_LIMIT || "20"),
   reqTimeout: 130000,
   total:      6,
   archetypeThresholds: { guilt: 60, trust: 55 },
@@ -28,30 +28,37 @@ const log = {
   debug: (...a) => console.log( `[${new Date().toISOString()}] DEBUG`, ...a),
 };
 
-
-// ─── PROCESS ERROR HANDLERS (after logger) ───────────────
+// ─── PROCESS ERROR HANDLERS ───────────────────────────────
 process.on("unhandledRejection", (err) => {
   log.error("Unhandled Rejection:", err?.message || err);
 });
-
 process.on("uncaughtException", (err) => {
   log.error("Uncaught Exception:", err?.message || err);
   process.exit(1);
+});
+process.on("SIGTERM", () => {
+  log.info("SIGTERM received — shutting down gracefully...");
+  server.close(() => {
+    clearInterval(rateLimitInterval);
+    log.info("Server closed. Goodbye.");
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10000); // force exit after 10s
 });
 
 // ─── MUTEX ────────────────────────────────────────────────
 class Mutex {
   constructor() { this._queue = []; this._locked = false; }
-  lock()        { return new Promise(r => { if (!this._locked) { this._locked = true; r(); } else { this._queue.push(r); } }); }
-  unlock()      { if (this._queue.length > 0) { this._queue.shift()(); } else { this._locked = false; } }
-  isLocked()    { return this._locked; }
-  queueDepth()  { return this._queue.length; }
+  lock()       { return new Promise(r => { if (!this._locked) { this._locked = true; r(); } else { this._queue.push(r); } }); }
+  unlock()     { if (this._queue.length > 0) { this._queue.shift()(); } else { this._locked = false; } }
+  isLocked()   { return this._locked; }
+  queueDepth() { return this._queue.length; }
 }
 const ollamaMutex = new Mutex();
 
 // ─── RATE LIMITER ─────────────────────────────────────────
 const rateLimitMap = new Map();
-setInterval(() => rateLimitMap.clear(), 60 * 60 * 1000);
+const rateLimitInterval = setInterval(() => rateLimitMap.clear(), 60 * 60 * 1000);
 function rateLimit(ip, max = CONFIG.rateLimit) {
   const now = Date.now(), win = 60000;
   const e   = rateLimitMap.get(ip) || { count: 0, start: now };
@@ -59,8 +66,6 @@ function rateLimit(ip, max = CONFIG.rateLimit) {
   rateLimitMap.set(ip, e);
   return e.count > max;
 }
-
-// ─── LRU CACHE ────────────────────────────────────────────
 
 // ─── HELPERS ──────────────────────────────────────────────
 function extractJSON(text) {
@@ -77,25 +82,17 @@ async function tryCatch(fn, fallback = null) {
   try { return await fn(); } catch (err) { log.error(err.message); return fallback; }
 }
 
-// ─── PROMPTS (archetype + history injected for max variation) ─
+// ─── PROMPTS ──────────────────────────────────────────────
 const PROMPTS = {
   scene: (sceneN, choice, stats, isFinal, arch, lang, priorChoices = []) => {
     const isHindi = lang === "hi";
 
-    // Archetype direction injected so each playthrough feels different
     const archetypeHint = {
-      redemption: isHindi
-        ? "माया सच्चाई की तलाश में है — माफी और शांति की ओर।"
-        : "Mara seeks truth — she moves toward forgiveness and peace.",
-      corruption: isHindi
-        ? "माया खतरनाक रास्ते पर है — वह अंधेरे में खो सकती है।"
-        : "Mara is on a dangerous path — she risks becoming what she hunts.",
-      sacrifice: isHindi
-        ? "माया सब कुछ दांव पर लगाने को तैयार है।"
-        : "Mara is willing to sacrifice everything — her guilt is consuming her.",
+      redemption: isHindi ? "माया सच्चाई की तलाश में है — माफी और शांति की ओर।" : "Mara seeks truth — she moves toward forgiveness and peace.",
+      corruption:  isHindi ? "माया खतरनाक रास्ते पर है — वह अंधेरे में खो सकती है।" : "Mara is on a dangerous path — she risks becoming what she hunts.",
+      sacrifice:   isHindi ? "माया सब कुछ दांव पर लगाने को तैयार है।" : "Mara is willing to sacrifice everything — her guilt is consuming her.",
     }[arch] || "";
 
-    // Prior choices injected for story continuity
     const historyHint = priorChoices.length > 0
       ? (isHindi
           ? "अब तक के निर्णय: " + priorChoices.map((c,i) => (i+1)+". "+c).join(" → ")
@@ -103,33 +100,20 @@ const PROMPTS = {
       : "";
 
     const instruction = isHindi
-      ? ["आप 'मौन का भार' मनोवैज्ञानिक थ्रिलर गेम के लिए दृश्य लिख रहे हैं।",
-         "जासूस माया वर्मा 15 साल बाद मिलहेवन लौटती है।",
-         archetypeHint,
-         "सभी टेक्स्ट पूरी तरह हिंदी में। केवल JSON में उत्तर दें।"].filter(Boolean).join("\n")
-      : ["You write scenes for 'The Weight of Silence' psychological thriller.",
-         "Detective Mara Voss returns to Millhaven after 15 years. A murder mirrors an old unsolved case.",
-         archetypeHint,
-         "English only. Reply ONLY with JSON. Make each scene DIFFERENT — avoid clichés."].filter(Boolean).join("\n");
+      ? ["आप 'मौन का भार' मनोवैज्ञानिक थ्रिलर गेम के लिए दृश्य लिख रहे हैं।", "जासूस माया वर्मा 15 साल बाद मिलहेवन लौटती है।", archetypeHint, "सभी टेक्स्ट पूरी तरह हिंदी में। केवल JSON में उत्तर दें।"].filter(Boolean).join("\n")
+      : ["You write scenes for 'The Weight of Silence' psychological thriller.", "Detective Mara Voss returns to Millhaven after 15 years. A murder mirrors an old unsolved case.", archetypeHint, "English only. Reply ONLY with JSON. Make each scene DIFFERENT — avoid clichés."].filter(Boolean).join("\n");
 
     const statsLine = isHindi
       ? "विश्वास="+stats.trust+"% अपराध="+stats.guilt+"% संदेह="+stats.suspicion+"%"
       : "trust="+stats.trust+"% guilt="+stats.guilt+"% suspicion="+stats.suspicion+"%";
 
     const finalLine = isFinal
-      ? (isHindi
-          ? "यह अंतिम दृश्य है। \""+arch+"\" समाप्ति लिखें — भावनात्मक और यादगार।"
-          : "FINAL SCENE. Write a \""+arch+"\" ending — emotionally resonant and surprising.")
+      ? (isHindi ? "यह अंतिम दृश्य है। \""+arch+"\" समाप्ति लिखें — भावनात्मक और यादगार।" : "FINAL SCENE. Write a \""+arch+"\" ending — emotionally resonant and surprising.")
       : "";
 
-    // Narrative hint varies by archetype for richer variation
     const narrativeHint = isHindi
       ? "तीन वाक्य हिंदी में। दूसरे व्यक्ति वर्तमान काल। सिनेमाई।"
-      : ({
-          redemption: "Three sentences. Second person. Focus on hope, connection, or a small moment of truth.",
-          corruption:  "Three sentences. Second person. Focus on moral compromise or a line being crossed.",
-          sacrifice:   "Three sentences. Second person. Focus on cost, loss, or something irreversible.",
-        }[arch] || "Three cinematic sentences. Second person present. Subvert expectations.");
+      : ({ redemption: "Three sentences. Second person. Focus on hope, connection, or a small moment of truth.", corruption: "Three sentences. Second person. Focus on moral compromise or a line being crossed.", sacrifice: "Three sentences. Second person. Focus on cost, loss, or something irreversible." }[arch] || "Three cinematic sentences. Second person present. Subvert expectations.");
 
     const schema = isHindi
       ? `{"chapter":"3-5 शब्दों का शीर्षक","location":"मिलहेवन में विशिष्ट स्थान","icon":"इमोजी","atmosphere":"rain|interrogation|revelation|church|default","tension_increase":${8+sceneN},"stat_delta":{"trust":0,"guilt":5,"suspicion":5},"narrative":"${narrativeHint}","choices":["पहला विकल्प 8-12 शब्द","दूसरा विकल्प 8-12 शब्द"]${isFinal ? ',"ending_title":"अंत शीर्षक","ending_text":"तीन वाक्य उपसंहार"' : ""}}`
@@ -139,8 +123,7 @@ const PROMPTS = {
       ? "खिलाड़ी ने चुना: \"" + (choice || "माया मिलहेवन रात में पहुँचती है") + "\""
       : "Player chose: \"" + (choice || "Mara arrives in Millhaven at night in heavy rain") + "\"";
 
-    return [instruction, "Scene: "+sceneN+"/"+CONFIG.total, choiceText, historyHint, statsLine, finalLine, "\nReply ONLY with raw JSON:\n"+schema]
-      .filter(Boolean).join("\n");
+    return [instruction, "Scene: "+sceneN+"/"+CONFIG.total, choiceText, historyHint, statsLine, finalLine, "\nReply ONLY with raw JSON:\n"+schema].filter(Boolean).join("\n");
   }
 };
 
@@ -148,16 +131,12 @@ const PROMPTS = {
 const app = express();
 app.set("trust proxy", 1);
 app.use(helmet());
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || "*",
-  methods: ["GET", "POST"],
-}));
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN || "*", methods: ["GET", "POST"] }));
 app.use(express.json({ limit: "50kb" }));
 app.use(express.static("."));
 app.use(express.static(path.join(__dirname, "public")));
 
-
-// ─── REQUEST ID MIDDLEWARE ────────────────────────────────
+// ─── REQUEST ID MIDDLEWARE ─────────────────────────────────
 app.use((req, _res, next) => {
   req.id = req.headers["x-request-id"] ?? crypto.randomUUID();
   next();
@@ -170,11 +149,7 @@ async function callGroq(prompt, signal) {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST", signal,
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.groqKey}` },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        max_tokens: 600, temperature: 0.85,
-        messages: [{ role: "user", content: prompt }]
-      })
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 600, temperature: 0.85, messages: [{ role: "user", content: prompt }] })
     });
     if (!res.ok) return null;
     const d = await res.json();
@@ -194,11 +169,7 @@ async function callOllama(prompt, signal = null) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: ctrl.signal,
-      body: JSON.stringify({
-        model: CONFIG.model, stream: false,
-        options: { temperature: 0.8, num_predict: 600, num_ctx: 1024 },
-        messages: [{ role: "user", content: prompt }]
-      })
+      body: JSON.stringify({ model: CONFIG.model, stream: false, options: { temperature: 0.8, num_predict: 600, num_ctx: 1024 }, messages: [{ role: "user", content: prompt }] })
     });
     clearTimeout(timer);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -209,18 +180,13 @@ async function callOllama(prompt, signal = null) {
 
 // ─── RACE: GROQ vs OLLAMA ─────────────────────────────────
 async function generate(prompt) {
-  if (!CONFIG.groqKey) {
-    log.info("Local only");
-    return callOllama(prompt);
-  }
+  if (!CONFIG.groqKey) { log.info("Local only"); return callOllama(prompt); }
   log.info("Racing Groq vs Ollama ⚡");
-  const groqAbort   = new AbortController();
+  const groqAbort = new AbortController();
   const ollamaAbort = new AbortController();
   return new Promise((resolve) => {
     let settled = false, failures = 0;
-    const finish = (src, result, kill) => {
-      if (!settled && result) { settled = true; kill.abort(); log.info(`Winner: ${src}`); resolve(result); }
-    };
+    const finish = (src, result, kill) => { if (!settled && result) { settled = true; kill.abort(); log.info(`Winner: ${src}`); resolve(result); } };
     const onFail = () => { if (++failures === 2 && !settled) { settled = true; resolve(null); } };
     callGroq(prompt, groqAbort.signal).then(r => r ? finish("Groq", r, ollamaAbort) : onFail()).catch(onFail);
     callOllama(prompt, ollamaAbort.signal).then(r => r ? finish("Ollama", r, groqAbort) : onFail()).catch(onFail);
@@ -230,27 +196,24 @@ async function generate(prompt) {
 // ─── FALLBACKS ────────────────────────────────────────────
 const FALLBACKS = {
   en: [
-    { chapter:"Shadows Lengthen", location:"Millhaven Church", icon:"⛪", atmosphere:"church", tension_increase:12, stat_delta:{trust:-5,guilt:5,suspicion:10}, narrative:"You push open the heavy church doors. A candle still flickers near the altar. Someone was here recently.", choices:["Examine the altar for hidden clues","Check the dark confession booth"] },
-    { chapter:"The Rain Knows",   location:"Police Station",   icon:"🚔", atmosphere:"interrogation", tension_increase:14, stat_delta:{trust:5,guilt:-5,suspicion:15}, narrative:"The detective slides a photograph across the table. Your father's face stares back at you. Your hands stay steady.", choices:["Demand to see the full case file","Stay silent and study his reaction"] },
-    { chapter:"Old Wounds",       location:"Voss Family Home", icon:"🏚️", atmosphere:"rain", tension_increase:10, stat_delta:{trust:0,guilt:15,suspicion:5}, narrative:"The old house smells of pine and regret. Your father's study is untouched, frozen in time. The answers are here.", choices:["Search the desk for hidden documents","Look behind the old painting"] },
+    { chapter:"Shadows Lengthen", location:"Millhaven Church",  icon:"⛪",  atmosphere:"church",        tension_increase:12, stat_delta:{trust:-5,guilt:5,suspicion:10}, narrative:"You push open the heavy church doors. A candle still flickers near the altar. Someone was here recently.",                          choices:["Examine the altar for hidden clues","Check the dark confession booth"] },
+    { chapter:"The Rain Knows",   location:"Police Station",    icon:"🚔",  atmosphere:"interrogation", tension_increase:14, stat_delta:{trust:5,guilt:-5,suspicion:15}, narrative:"The detective slides a photograph across the table. Your father's face stares back at you. Your hands stay steady.",              choices:["Demand to see the full case file","Stay silent and study his reaction"] },
+    { chapter:"Old Wounds",       location:"Voss Family Home",  icon:"🏚️", atmosphere:"rain",          tension_increase:10, stat_delta:{trust:0,guilt:15,suspicion:5},  narrative:"The old house smells of pine and regret. Your father's study is untouched, frozen in time. The answers are here.",              choices:["Search the desk for hidden documents","Look behind the old painting"] },
   ],
   hi: [
-    { chapter:"परछाइयाँ लंबी होती हैं", location:"मिलहेवन चर्च", icon:"⛪", atmosphere:"church", tension_increase:12, stat_delta:{trust:-5,guilt:5,suspicion:10}, narrative:"आप भारी चर्च के दरवाजे धकेलती हैं। वेदी के पास एक मोमबत्ती अभी भी टिमटिमाती है। कोई हाल ही में यहाँ था।", choices:["छिपे सुरागों के लिए वेदी की जाँच करें","अंधेरे कन्फेशन बूथ की जाँच करें"] },
-    { chapter:"बारिश जानती है",   location:"पुलिस स्टेशन",   icon:"🚔", atmosphere:"interrogation", tension_increase:14, stat_delta:{trust:5,guilt:-5,suspicion:15}, narrative:"जासूस मेज पर एक तस्वीर सरकाता है। आपके पिता का चेहरा आपको वापस देखता है। आपके हाथ स्थिर रहते हैं।", choices:["पूरी केस फाइल देखने की माँग करें","चुप रहें और उसकी प्रतिक्रिया देखें"] },
-    { chapter:"पुराने घाव",       location:"वर्मा परिवार का घर", icon:"🏚️", atmosphere:"rain", tension_increase:10, stat_delta:{trust:0,guilt:15,suspicion:5}, narrative:"पुराने घर में देवदार और पछतावे की खुशबू आती है। आपके पिता का अध्ययन कक्ष अछूता है। जवाब यहाँ हैं।", choices:["छिपे दस्तावेजों के लिए मेज की तलाशी लें","पुरानी पेंटिंग के पीछे देखें"] },
+    { chapter:"परछाइयाँ लंबी होती हैं", location:"मिलहेवन चर्च",       icon:"⛪",  atmosphere:"church",        tension_increase:12, stat_delta:{trust:-5,guilt:5,suspicion:10}, narrative:"आप भारी चर्च के दरवाजे धकेलती हैं। वेदी के पास एक मोमबत्ती अभी भी टिमटिमाती है। कोई हाल ही में यहाँ था।",   choices:["छिपे सुरागों के लिए वेदी की जाँच करें","अंधेरे कन्फेशन बूथ की जाँच करें"] },
+    { chapter:"बारिश जानती है",         location:"पुलिस स्टेशन",         icon:"🚔",  atmosphere:"interrogation", tension_increase:14, stat_delta:{trust:5,guilt:-5,suspicion:15}, narrative:"जासूस मेज पर एक तस्वीर सरकाता है। आपके पिता का चेहरा आपको वापस देखता है। आपके हाथ स्थिर रहते हैं।",          choices:["पूरी केस फाइल देखने की माँग करें","चुप रहें और उसकी प्रतिक्रिया देखें"] },
+    { chapter:"पुराने घाव",             location:"वर्मा परिवार का घर",   icon:"🏚️", atmosphere:"rain",          tension_increase:10, stat_delta:{trust:0,guilt:15,suspicion:5},  narrative:"पुराने घर में देवदार और पछतावे की खुशबू आती है। आपके पिता का अध्ययन कक्ष अछूता है। जवाब यहाँ हैं।",      choices:["छिपे दस्तावेजों के लिए मेज की तलाशी लें","पुरानी पेंटिंग के पीछे देखें"] },
   ]
 };
 const fbIdx = { en: 0, hi: 0 };
-function getFallback(lang) {
-  const l = lang || 'en';
-  return FALLBACKS[l][fbIdx[l]++ % FALLBACKS[l].length];
-}
+function getFallback(lang) { const l = lang || "en"; return FALLBACKS[l][fbIdx[l]++ % FALLBACKS[l].length]; }
 
 // ─── STORY ROUTE ──────────────────────────────────────────
 app.post("/api/story", async (req, res) => {
   res.setTimeout(CONFIG.reqTimeout, () => {
     log.warn("Request timeout");
-    if (!res.headersSent) res.status(504).json({ error: "AI timeout. Please try again." });
+    if (!res.headersSent) res.status(504).json({ success: false, error: { code: "TIMEOUT", message: "AI timeout. Please try again." } });
   });
 
   const ip = req.ip || "unknown";
@@ -259,10 +222,10 @@ app.post("/api/story", async (req, res) => {
   const { messages, lang } = req.body;
   if (!Array.isArray(messages)) return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Missing messages" } });
 
-  const language = lang || 'en';
+  const language = lang || "en";
   const last     = messages[messages.length-1]?.content || "";
   const sceneN   = parseInt(last.match(/Scene (\d+)/)?.[1]    || "1");
-  const choice   = last.match(/chose: "([^"]+)"/)?.[1] || null;
+  const choice   = last.match(/chose: "([^"]+)"/)?.[1]        || null;
   const isFinal  = last.includes("ending");
   const arch     = last.match(/"?(\w+)"? ending/)?.[1]        || "redemption";
   const stats    = {
@@ -271,16 +234,13 @@ app.post("/api/story", async (req, res) => {
     suspicion: parseInt(last.match(/suspicion=(\d+)/)?.[1] || "30"),
   };
 
-  log.info(`[${req.id}] Scene ${sceneN} | lang=${language} | arch=${arch} | "${choice?.slice(0,25)||'start'}" | ${ip}`);
+  log.info(`[${req.id}] Scene ${sceneN} | lang=${language} | arch=${arch} | "${choice?.slice(0,25)||"start"}" | ${ip}`);
 
-  // ✅ Fix 1: No cache read — every call hits Groq/Ollama for fresh variation
-  // Extract prior choices from message history for prompt injection
   const priorChoices = messages
-    .filter(m => m.role === "user" && m.content.includes('chose:'))
+    .filter(m => m.role === "user" && m.content.includes("chose:"))
     .map(m => { const match = m.content.match(/chose: "([^"]+)"/); return match?.[1]?.slice(0,40); })
     .filter(Boolean);
 
-  // ✅ Fix 2: priorChoices + arch injected into prompt
   const prompt = PROMPTS.scene(sceneN, choice, stats, isFinal, arch, language, priorChoices);
   const raw    = await tryCatch(() => generate(prompt));
   const data   = extractJSON(raw);
@@ -290,7 +250,6 @@ app.post("/api/story", async (req, res) => {
     return res.json({ content: [{ text: JSON.stringify(getFallback(language)) }] });
   }
 
-  // ✅ Fix 3: Clip stat_delta server-side so model can't return wild values
   if (data.stat_delta && typeof data.stat_delta === "object") {
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || 0));
     data.stat_delta.trust     = clamp(data.stat_delta.trust,     -15, 15);
@@ -301,46 +260,35 @@ app.post("/api/story", async (req, res) => {
     data.tension_increase = Math.max(4, Math.min(20, data.tension_increase));
   }
 
-  // No caching — every call generates fresh for zero repetition
   log.info(`[${req.id}] Generated [${language}] arch=${arch}: "${data.chapter}" | delta=${JSON.stringify(data.stat_delta)}`);
   return res.json({ content: [{ text: JSON.stringify(data) }] });
 });
 
-// ─── CONFIG ROUTE (for frontend) ──────────────────────────
+// ─── CONFIG ROUTE ─────────────────────────────────────────
 app.get("/api/config", (_req, res) => {
-  res.json({
-    total:               CONFIG.total,
-    archetypeThresholds: CONFIG.archetypeThresholds,
-  });
+  res.json({ total: CONFIG.total, archetypeThresholds: CONFIG.archetypeThresholds });
 });
 
-// ─── HEALTH & CACHE ───────────────────────────────────────
+// ─── HEALTH ───────────────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({
-  status:"ok", groq: !!CONFIG.groqKey,
-  raceMode: !!CONFIG.groqKey, model: CONFIG.model,
-  mutexLocked: ollamaMutex.isLocked(), mutexQueue: ollamaMutex.queueDepth(),
-  rateLimit: `${CONFIG.rateLimit} req/min`, languages: ["en", "hi"],
+  status: "ok", groq: !!CONFIG.groqKey, raceMode: !!CONFIG.groqKey,
+  model: CONFIG.model, mutexLocked: ollamaMutex.isLocked(),
+  mutexQueue: ollamaMutex.queueDepth(), rateLimit: `${CONFIG.rateLimit} req/min`,
+  languages: ["en", "hi"],
 }));
 
-// ─── AUDIO / IMAGE STUB ROUTES ────────────────────────────
-// These are served by Python servers in production.
-// In single-server mode they return graceful fallbacks.
-app.get("/internal/audio/health", (_req, res) => res.json({ status: "ok", engine: "browser" }));
-app.post("/internal/audio/narrate", (_req, res) => res.json({ audio: null, engine: "browser" }));
-app.get("/internal/image/health",  (_req, res) => res.json({ status: "ok", engine: "css" }));
+// ─── AUDIO / IMAGE STUBS ──────────────────────────────────
+app.get("/internal/audio/health",    (_req, res) => res.json({ status: "ok", engine: "browser" }));
+app.post("/internal/audio/narrate",  (_req, res) => res.json({ audio: null, engine: "browser" }));
+app.get("/internal/image/health",    (_req, res) => res.json({ status: "ok", engine: "css" }));
 app.post("/internal/image/generate", (_req, res) => res.json({ image: null, engine: "css_gradient" }));
 
-
-// ─── CENTRALIZED ERROR MIDDLEWARE ────────────────────────
+// ─── CENTRALIZED ERROR MIDDLEWARE ─────────────────────────
 app.use((err, req, res, next) => {
   const requestId = req.id || "unknown";
   log.error(`[${requestId}] Unhandled error: ${err.message}`);
   if (res.headersSent) return next(err);
-  res.status(500).json({
-    success: false,
-    error: { code: "INTERNAL_ERROR", message: "Unexpected server error" },
-    requestId,
-  });
+  res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Unexpected server error" }, requestId });
 });
 
 // ─── STARTUP ──────────────────────────────────────────────
@@ -353,7 +301,7 @@ async function checkOllama() {
   }, false);
 }
 
-app.listen(CONFIG.port, "0.0.0.0", async () => {
+const server = app.listen(CONFIG.port, "0.0.0.0", async () => {
   log.info(`🎬 Thriller App → http://localhost:${CONFIG.port}`);
   log.info(`🌐 Groq         → ${CONFIG.groqKey ? "enabled ⚡" : "not set"}`);
   log.info(`🤖 Model        → ${CONFIG.model}`);
