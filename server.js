@@ -1,14 +1,4 @@
-
-// ─── PROCESS ERROR HANDLERS ───────────────────────────────
-process.on("unhandledRejection", (err) => {
-  log.error("Unhandled Rejection:", err?.message || err);
-});
-
-process.on("uncaughtException", (err) => {
-  log.error("Uncaught Exception:", err?.message || err);
-  process.exit(1);
-});
-
+import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
@@ -37,6 +27,17 @@ const log = {
   error: (...a) => console.error(`[${new Date().toISOString()}] ERROR`, ...a),
   debug: (...a) => console.log( `[${new Date().toISOString()}] DEBUG`, ...a),
 };
+
+
+// ─── PROCESS ERROR HANDLERS (after logger) ───────────────
+process.on("unhandledRejection", (err) => {
+  log.error("Unhandled Rejection:", err?.message || err);
+});
+
+process.on("uncaughtException", (err) => {
+  log.error("Uncaught Exception:", err?.message || err);
+  process.exit(1);
+});
 
 // ─── MUTEX ────────────────────────────────────────────────
 class Mutex {
