@@ -2,6 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import "dotenv/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -134,8 +135,12 @@ const PROMPTS = {
 // ─── EXPRESS APP ──────────────────────────────────────────
 const app = express();
 app.set("trust proxy", 1);
-app.use(cors());
-app.use(express.json());
+app.use(helmet());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || "*",
+  methods: ["GET", "POST"],
+}));
+app.use(express.json({ limit: "50kb" }));
 app.use(express.static("."));
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -230,10 +235,10 @@ app.post("/api/story", async (req, res) => {
   });
 
   const ip = req.ip || "unknown";
-  if (rateLimit(ip)) return res.status(429).json({ error: "Too many requests." });
+  if (rateLimit(ip)) return res.status(429).json({ success: false, error: { code: "RATE_LIMIT", message: "Too many requests." } });
 
   const { messages, lang } = req.body;
-  if (!Array.isArray(messages)) return res.status(400).json({ error: "Missing messages" });
+  if (!Array.isArray(messages)) return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Missing messages" } });
 
   const language = lang || 'en';
   const last     = messages[messages.length-1]?.content || "";
