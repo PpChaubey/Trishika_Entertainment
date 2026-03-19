@@ -144,6 +144,13 @@ app.use(express.json({ limit: "50kb" }));
 app.use(express.static("."));
 app.use(express.static(path.join(__dirname, "public")));
 
+
+// ─── REQUEST ID MIDDLEWARE ────────────────────────────────
+app.use((req, _res, next) => {
+  req.id = req.headers["x-request-id"] || Math.random().toString(36).slice(2, 10);
+  next();
+});
+
 // ─── GROQ ─────────────────────────────────────────────────
 async function callGroq(prompt, signal) {
   if (!CONFIG.groqKey) return null;
@@ -252,7 +259,7 @@ app.post("/api/story", async (req, res) => {
     suspicion: parseInt(last.match(/suspicion=(\d+)/)?.[1] || "30"),
   };
 
-  log.info(`Scene ${sceneN} | lang=${language} | arch=${arch} | "${choice?.slice(0,25)||'start'}" | ${ip}`);
+  log.info(`[${req.id}] Scene ${sceneN} | lang=${language} | arch=${arch} | "${choice?.slice(0,25)||'start'}" | ${ip}`);
 
   // ✅ Fix 1: No cache read — every call hits Groq/Ollama for fresh variation
   // Extract prior choices from message history for prompt injection
@@ -267,7 +274,7 @@ app.post("/api/story", async (req, res) => {
   const data   = extractJSON(raw);
 
   if (!data) {
-    log.warn(`Parse failed [${language}] — fallback`);
+    log.warn(`[${req.id}] Parse failed [${language}] — fallback`);
     return res.json({ content: [{ text: JSON.stringify(getFallback(language)) }] });
   }
 
@@ -283,7 +290,7 @@ app.post("/api/story", async (req, res) => {
   }
 
   // No caching — every call generates fresh for zero repetition
-  log.info(`Generated [${language}] arch=${arch}: "${data.chapter}" | delta=${JSON.stringify(data.stat_delta)}`);
+  log.info(`[${req.id}] Generated [${language}] arch=${arch}: "${data.chapter}" | delta=${JSON.stringify(data.stat_delta)}`);
   return res.json({ content: [{ text: JSON.stringify(data) }] });
 });
 
@@ -310,6 +317,19 @@ app.get("/internal/audio/health", (_req, res) => res.json({ status: "ok", engine
 app.post("/internal/audio/narrate", (_req, res) => res.json({ audio: null, engine: "browser" }));
 app.get("/internal/image/health",  (_req, res) => res.json({ status: "ok", engine: "css" }));
 app.post("/internal/image/generate", (_req, res) => res.json({ image: null, engine: "css_gradient" }));
+
+
+// ─── CENTRALIZED ERROR MIDDLEWARE ────────────────────────
+app.use((err, req, res, next) => {
+  const requestId = req.headers["x-request-id"] || "unknown";
+  log.error(`[${requestId}] Unhandled error: ${err.message}`);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    success: false,
+    error: { code: "INTERNAL_ERROR", message: "Unexpected server error" },
+    requestId,
+  });
+});
 
 // ─── STARTUP ──────────────────────────────────────────────
 async function checkOllama() {
