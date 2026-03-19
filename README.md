@@ -1,63 +1,78 @@
-# 🎬 The Weight of Silence | मौन का भार
+# 🎬 Trishika Entertainment — AI Cinematic Thriller
 
-> An AI-powered interactive cinematic thriller with voice narration, scene images, bilingual support, and full offline capability.
+> An AI-powered interactive psychological thriller with voice narration, AI scene images, Hindi/English bilingual support, and full offline capability.
 
----
-
-## 🏗 Architecture
-
-```
-Browser
-  └── Nginx :80/:443
-        ├── /            → Node.js :3000  (story AI)
-        ├── /api/story   → Node.js :3000  (Groq race + Ollama fallback)
-        ├── /internal/audio/ → Python :3001  (Kokoro TTS + music)
-        └── /internal/image/ → Python :3002  (Stable Diffusion + CSS fallback)
-                                    ↓
-                             Ollama :11434  (llama3.1:8b local)
-                             Redis  :6379   (shared rate limiting)
-```
+🔗 **Live Demo:** *(coming soon)*
 
 ---
 
-## 📁 Project Structure
+## 🎮 What Is This?
+
+An interactive story game where every choice you make changes the narrative. Powered entirely by AI — the story generates fresh every single playthrough.
+
+- 🕵️ Play as Detective Mara Voss / जासूस माया वर्मा
+- 🌧️ Set in the mysterious town of Millhaven
+- 🎭 3 possible endings: Redemption, Corruption, or Sacrifice
+- 🇮🇳 Full Hindi + English language support
+- 🔊 AI voice narration
+- 🖼️ AI generated scene images
+
+---
+
+## 🏗️ Architecture
 
 ```
-├── server.js                   # Main Node.js story server
-├── web/
-│   └── index.html              # Frontend (modular JS, DOMPurify, bilingual)
-├── services/
-│   ├── shared.py               # Shared utilities (logger, rate limiter, LRU, base handler)
-│   ├── audio/audio_server.py   # TTS + music server
-│   └── image/image_server.py   # Stable Diffusion image server
-├── infra/
-│   ├── nginx.conf.template     # Nginx with envsubst (domain/token not hardcoded)
-│   └── docker-compose.yml      # Full stack: nginx, app, audio, image, ollama, redis
-├── scripts/
-│   ├── start.sh                # Local dev startup (PID-based)
-│   ├── stop.sh                 # Safe shutdown
-│   └── setup-https.sh          # Let's Encrypt SSL setup
-├── .env.example                # Copy to .env
-└── README.md
+Browser (EN + हिंदी)
+    ↓
+Nginx (HTTPS, rate limiting, token injection)
+    ↓
+Node.js :3000  — Story AI (Groq race + Ollama fallback)
+Python  :3001  — TTS Voice (Kokoro offline)
+Python  :3002  — Scene Images (Stable Diffusion)
+    ↓
+Redis   :6379  — Distributed rate limiting
+Ollama  :11434 — Local LLaMA 3.1 (offline AI)
 ```
+
+---
+
+## ⚡ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Story AI | Groq LLaMA 70B + Ollama llama3.1:8b |
+| Voice | Kokoro ONNX (offline TTS) |
+| Images | Stable Diffusion v1.5 (offline) |
+| Backend | Node.js 22, Express |
+| Services | Python 3.11 |
+| Proxy | Nginx 1.25 |
+| Cache | Redis 7 |
+| Deploy | Docker Compose |
 
 ---
 
 ## 🚀 Quick Start (Local)
 
 ```bash
-# 1. Install dependencies
+# 1. Clone
+git clone https://github.com/PpChaubey/Trishika_Entertainment.git
+cd Trishika_Entertainment
+
+# 2. Install
 npm install
 pip install kokoro-onnx soundfile numpy redis --break-system-packages
 
-# 2. Configure
+# 3. Configure
 cp .env.example .env
-# Fill in: GROQ_API_KEY, SERVICE_TOKEN
+# Add your GROQ_API_KEY (free at console.groq.com)
 
-# 3. Start everything
-bash scripts/start.sh
+# 4. Start Ollama
+ollama pull llama3.1:8b
 
-# 4. Open
+# 5. Run
+bash start.sh
+
+# 6. Open
 http://localhost:3000
 ```
 
@@ -66,18 +81,8 @@ http://localhost:3000
 ## 🐳 Docker Deploy
 
 ```bash
-cp .env.example .env   # fill in your values
+cp .env.example .env
 docker compose up --build
-```
-
----
-
-## 🔒 HTTPS Setup
-
-```bash
-export DOMAIN=yourdomain.com
-export EMAIL=you@email.com
-bash scripts/setup-https.sh
 ```
 
 ---
@@ -86,38 +91,50 @@ bash scripts/setup-https.sh
 
 | Feature | Engine | Fallback |
 |---|---|---|
-| Story AI | Groq (cloud) | Ollama local |
-| Voice narration | Kokoro TTS (offline) | Browser Web Speech |
-| Scene images | Stable Diffusion (offline) | CSS gradient |
-| Background music | Pixabay CDN | Silent |
+| Story AI | Groq cloud (~1s) | Ollama local |
+| Voice | Kokoro TTS offline | Browser Speech API |
+| Images | Stable Diffusion | CSS gradient |
+| Music | Pixabay CDN | Silent |
 | Language | English + हिंदी | — |
 
 ---
 
-## ⚙️ Environment Variables
+## 🔒 Security
 
-| Variable | Default | Description |
-|---|---|---|
-| `GROQ_API_KEY` | — | Groq API key (optional) |
-| `SERVICE_TOKEN` | `thriller-secret-2026` | Internal service auth |
-| `MODEL` | `llama3.1:8b` | Ollama model |
-| `RATE_LIMIT` | `20` | Requests per minute |
-| `CACHE_LIMIT` | `200` | LRU cache size |
-| `REDIS_URL` | — | Redis for distributed rate limiting |
-| `MAX_BODY_BYTES` | `50000` | Max request body size |
-| `STRICT_TTS` | `0` | Exit if Kokoro unavailable |
-| `STRICT_SD` | `0` | Exit if Stable Diffusion unavailable |
+- Nginx reverse proxy — services never exposed directly
+- Service token injected server-side by Nginx
+- Per-IP rate limiting (Redis + in-memory fallback)
+- Request timeout guards
+- DOMPurify sanitization on AI output
+- Input validation + JSON size limits
 
 ---
 
-## 🏆 Tech Stack
+## 📁 Project Structure
 
-- **Node.js 22** — story server (native fetch, no node-fetch)
-- **Python 3.11** — audio + image services
-- **Nginx 1.25** — reverse proxy, rate limiting, HTTPS, token injection
-- **Redis 7** — distributed rate limiting
-- **Ollama** — local LLM (llama3.1:8b)
-- **Groq** — cloud LLM race mode
-- **Kokoro ONNX** — offline TTS
-- **Stable Diffusion** — offline image generation
-- **DOMPurify** — XSS protection for AI narrative output
+```
+├── server.js              # Main story server
+├── index.html             # Frontend (bilingual, modular JS)
+├── audio_server.py        # TTS + music
+├── image_server.py        # Stable Diffusion images
+├── services/shared.py     # Shared Python utilities
+├── infra/
+│   ├── nginx.conf.template
+│   └── docker-compose.yml
+├── scripts/
+│   ├── start.sh
+│   └── stop.sh
+└── .env.example
+```
+
+---
+
+## 👨‍💻 Built By
+
+**Himanshu Chaubey** — [@PpChaubey](https://github.com/PpChaubey)
+
+*Built from scratch — from a broken Gemini API key to a full production AI system.*
+
+---
+
+## ⭐ If you like this project, give it a star!
