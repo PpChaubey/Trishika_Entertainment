@@ -659,11 +659,11 @@ const Music = (() => {
   const el = () => document.getElementById("bg-music");
 
   const URLS = {
-    rain: "https://assets.mixkit.co/active_storage/sfx/2515/2515-preview.mp3",
-    interrogation: "https://assets.mixkit.co/active_storage/sfx/2523/2523-preview.mp3",
-    revelation: "https://assets.mixkit.co/active_storage/sfx/2516/2516-preview.mp3",
-    church: "https://assets.mixkit.co/active_storage/sfx/2517/2517-preview.mp3",
-    default: "https://assets.mixkit.co/active_storage/sfx/2515/2515-preview.mp3"
+    rain: "https://cdn.pixabay.com/download/audio/2022/03/10/audio_8cb749ac9b.mp3",
+    interrogation: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1bab.mp3",
+    revelation: "https://cdn.pixabay.com/download/audio/2021/11/01/audio_50134e5a5a.mp3",
+    church: "https://cdn.pixabay.com/download/audio/2022/02/07/audio_9b7805998c.mp3",
+    default: "https://cdn.pixabay.com/download/audio/2022/03/10/audio_8cb749ac9b.mp3"
   };
 
   function play(atmosphere) {
@@ -754,7 +754,7 @@ const ImageService = (() => {
         if (data.image) {
           imgEl.onload = finish;
           imgEl.onerror = () => { finish(); };
-          imgEl.src = `https://image.pollinations.ai/prompt/${encodeURIComponent("cinematic noir thriller " + atmosphere + " " + chapter + " dark dramatic")}?width=560&height=180&nologo=true`;
+          imgEl.src = `data:image/png;base64,${data.image}`;
           return;
         }
       } catch (e) {
