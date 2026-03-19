@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+WORKDIR /app
+# Uncomment to enable Stable Diffusion:
+# RUN pip install --no-cache-dir diffusers torch
+RUN pip install --no-cache-dir redis
+COPY image_server.py .
+EXPOSE 3002
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:3002/image/health')" || exit 1
+CMD ["python3", "image_server.py"]

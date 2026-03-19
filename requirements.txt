@@ -1,0 +1,8 @@
+# Pin versions for predictable deployments
+kokoro-onnx==0.4.0
+soundfile==0.12.1
+numpy==1.26.4
+redis==5.0.4
+# Uncomment for Stable Diffusion:
+# diffusers==0.27.2
+# torch==2.2.2

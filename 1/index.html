@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Weight of Silence | मौन का भार</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090e;--surface:#111118;--surface2:#18181f;--border:#252530;--gold:#c9a84c;--text:#e0dcd0;--muted:#706860;--dim:#4a4440;}
+body{background:var(--bg);display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Crimson Text',serif}
+.hindi-font{font-family:'Tiro Devanagari Hindi',serif!important}
+#app{width:100%;max-width:560px;background:var(--bg);color:var(--text);position:relative;overflow:hidden;border:1px solid var(--border)}
+canvas#rain{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:0.3}
+
+/* LANG TOGGLE */
+.lang-bar{position:absolute;top:10px;right:10px;z-index:10;display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.lang-btn{background:transparent;border:none;color:var(--muted);font-size:0.72rem;padding:0.25rem 0.65rem;cursor:pointer;transition:all 0.2s;letter-spacing:0.08em}
+.lang-btn.active{background:rgba(201,168,76,0.15);color:var(--gold)}
+
+/* INTRO */
+#intro{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:560px;text-align:center;padding:2.5rem;position:relative;z-index:2}
+.film-strip{display:flex;gap:5px;margin-bottom:2rem}
+.fh{width:16px;height:22px;border:1.5px solid var(--border);border-radius:3px;background:var(--surface2)}
+h1{font-size:2.4rem;color:var(--gold);letter-spacing:0.04em;line-height:1.2;margin-bottom:0.35rem;font-family:'Playfair Display',serif}
+h1.hindi-font{font-size:2.1rem;letter-spacing:0.01em}
+.tagline{font-style:italic;color:var(--muted);font-size:1.1rem;margin-bottom:0.35rem}
+.subtitle{font-size:0.68rem;letter-spacing:0.2em;color:var(--dim);margin-bottom:2.5rem}
+.enter-btn{background:transparent;border:1px solid var(--gold);color:var(--gold);font-family:'Crimson Text',serif;font-size:1.05rem;padding:0.7rem 2.6rem;cursor:pointer;letter-spacing:0.12em;transition:all 0.3s;border-radius:1px}
+.enter-btn.hindi-font{letter-spacing:0.03em}
+.enter-btn:hover{background:var(--gold);color:var(--bg)}
+
+/* SCENE */
+#scene{display:none;flex-direction:column;position:relative;z-index:2}
+.s-header{padding:1rem 1.4rem 0.7rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.s-act{font-size:0.67rem;letter-spacing:0.22em;color:var(--dim);text-transform:uppercase}
+.s-num{font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold)}
+.s-chapter{font-size:0.88rem;color:var(--text);font-style:italic;font-family:'Playfair Display',serif}
+.s-chapter.hindi-font{font-style:normal;font-size:0.85rem}
+.t-bar{display:flex;align-items:center;gap:6px;font-size:0.67rem;letter-spacing:0.1em;color:var(--dim)}
+.t-track{width:68px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.t-fill{height:100%;background:var(--gold);border-radius:2px;transition:width 0.9s ease}
+.stat-row{display:flex;gap:8px;padding:0.55rem 1.4rem;border-bottom:1px solid var(--border)}
+.stat{display:flex;align-items:center;gap:5px;font-size:0.67rem;letter-spacing:0.08em;color:var(--muted)}
+.stat-track{width:44px;height:2px;background:var(--surface2);border-radius:1px;overflow:hidden}
+.stat-fill{height:100%;border-radius:1px;transition:width 0.7s ease}
+.st{background:#4a9eff}.sg{background:#c05050}.ss{background:#b07020}
+.s-visual{height:130px;position:relative;overflow:hidden;flex-shrink:0}
+.s-atm{position:absolute;inset:0;transition:background 1.2s ease}
+.fog{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,rgba(20,20,40,0.7) 0%,transparent 70%);pointer-events:none}
+.s-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2.8rem;opacity:0.45;z-index:2}
+.s-body{padding:1.3rem 1.4rem 1rem}
+.s-narrative{font-size:1.05rem;line-height:1.85;color:var(--text);margin-bottom:1.3rem;font-style:italic;border-left:2px solid var(--gold);padding-left:1rem;min-height:90px}
+.s-narrative.hindi-font{font-style:normal;font-size:1rem;line-height:2.1}
+.loading{animation:pulse 1.4s infinite;color:var(--muted)}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+.choices-lbl{font-size:0.67rem;letter-spacing:0.18em;color:var(--dim);margin-bottom:0.7rem}
+.choices-lbl.hindi-font{letter-spacing:0.03em;font-size:0.72rem}
+.choices{display:flex;flex-direction:column;gap:0.55rem}
+.c-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'Crimson Text',serif;font-size:0.98rem;padding:0.72rem 1rem;text-align:left;cursor:pointer;border-radius:1px;transition:all 0.2s;line-height:1.5}
+.c-btn.hindi-font{font-size:0.9rem;line-height:1.8}
+.c-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,0.04)}
+.c-btn:disabled{opacity:0.35;cursor:not-allowed}
+.s-footer{padding:0.6rem 1.4rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:0.7rem;color:var(--dim)}
+
+/* ENDING */
+#ending{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:460px;text-align:center;padding:2.5rem 1.8rem}
+.end-type{font-size:0.67rem;letter-spacing:0.25em;color:var(--dim);margin-bottom:0.8rem}
+.end-badge{font-size:0.75rem;letter-spacing:0.15em;padding:0.3rem 1.2rem;border-radius:1px;display:inline-block;margin-bottom:1rem}
+.redemption{color:#4a9eff;border:1px solid #4a9eff;background:rgba(74,158,255,0.06)}
+.corruption{color:#c05050;border:1px solid #c05050;background:rgba(192,80,80,0.06)}
+.sacrifice{color:#c9a84c;border:1px solid #c9a84c;background:rgba(201,168,76,0.06)}
+.end-title{font-family:'Playfair Display',serif;font-size:1.9rem;color:var(--gold);margin-bottom:1rem;line-height:1.2}
+.end-title.hindi-font{font-size:1.6rem}
+.end-text{font-style:italic;color:var(--text);line-height:1.85;max-width:440px;margin:0 auto 1.5rem;font-size:1.02rem}
+.end-text.hindi-font{font-style:normal;line-height:2.1;font-size:0.95rem}
+.end-stats{display:flex;gap:1.5rem;justify-content:center;margin-bottom:2rem;font-size:0.8rem;color:var(--muted)}
+.end-stats span{color:var(--text)}
+.restart-btn{background:transparent;border:1px solid var(--dim);color:var(--muted);font-size:0.95rem;padding:0.55rem 1.8rem;cursor:pointer;border-radius:1px;transition:all 0.3s;font-family:'Crimson Text',serif}
+.restart-btn:hover{border-color:var(--text);color:var(--text)}
+.credits{font-size:0.67rem;color:var(--dim);margin-top:1rem;letter-spacing:0.08em}
+#toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:#3a1010;border:1px solid #c05050;color:#f0a0a0;font-family:'Crimson Text',serif;font-size:0.9rem;padding:0.6rem 1.4rem;border-radius:2px;display:none;z-index:999}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="rain"></canvas>
+
+  <!-- LANG TOGGLE -->
+  <div class="lang-bar">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('hi')">हि</button>
+  </div>
+
+  <!-- INTRO -->
+  <div id="intro">
+    <div class="film-strip"><div class="fh"></div><div class="fh"></div><div class="fh"></div><div class="fh"></div><div class="fh"></div><div class="fh"></div></div>
+    <h1 id="i-title">The Weight<br>of Silence</h1>
+    <p class="tagline" id="i-tagline">Some truths are buried for a reason.</p>
+    <p class="subtitle" id="i-subtitle">AN INTERACTIVE PSYCHOLOGICAL THRILLER</p>
+    <button class="enter-btn" id="i-enter" onclick="startMovie()">ENTER THE STORY</button>
+  </div>
+
+  <!-- SCENE -->
+  <div id="scene">
+    <div class="s-header">
+      <div>
+        <div class="s-act" id="s-act-lbl">ACT <span id="act-lbl">I</span></div>
+        <div class="s-num" id="s-scene-lbl">Scene <span id="s-num">1</span></div>
+      </div>
+      <div class="s-chapter" id="s-chapter">The Return</div>
+      <div class="t-bar"><span id="tension-lbl">TENSION</span><div class="t-track"><div class="t-fill" id="t-fill" style="width:15%"></div></div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><span id="lbl-trust">TRUST</span><div class="stat-track"><div class="stat-fill st" id="sf-trust" style="width:50%"></div></div></div>
+      <div class="stat"><span id="lbl-guilt">GUILT</span><div class="stat-track"><div class="stat-fill sg" id="sf-guilt" style="width:20%"></div></div></div>
+      <div class="stat"><span id="lbl-susp">SUSPICION</span><div class="stat-track"><div class="stat-fill ss" id="sf-suspicion" style="width:30%"></div></div></div>
+    </div>
+    <div class="s-visual">
+      <div class="s-atm" id="s-atm"></div><div class="fog"></div>
+      <div class="s-icon" id="s-icon">🌑</div>
+    </div>
+    <div class="s-body">
+      <div class="s-narrative" id="s-narrative"><span class="loading" id="loading-txt">The darkness stirs...</span></div>
+      <div class="choices-lbl" id="choices-lbl">What does Mara do?</div>
+      <div class="choices" id="choices"></div>
+    </div>
+    <div class="s-footer">
+      <span id="s-location">Millhaven</span>
+      <span id="s-counter">1 / 6</span>
+    </div>
+  </div>
+
+  <!-- ENDING -->
+  <div id="ending">
+    <div class="end-type" id="end-type">— THE END —</div>
+    <div class="end-badge" id="end-badge">REDEMPTION ENDING</div>
+    <div class="end-title" id="end-title"></div>
+    <div class="end-text" id="end-text"></div>
+    <div class="end-stats">
+      <div><span id="e-trust-lbl">TRUST</span> <span id="end-trust">—</span></div>
+      <div><span id="e-guilt-lbl">GUILT</span> <span id="end-guilt">—</span></div>
+      <div><span id="e-susp-lbl">SUSPICION</span> <span id="end-susp">—</span></div>
+    </div>
+    <button class="restart-btn" id="restart-btn" onclick="restartMovie()">Begin Again</button>
+    <div class="credits" id="credits">Powered by Groq + Ollama · Your choices shaped this ending</div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ─── LANGUAGE ─────────────────────────────────────────────
+let currentLang = 'en';
+
+const T = {
+  en: {
+    title:"The Weight<br>of Silence", tagline:"Some truths are buried for a reason.",
+    subtitle:"AN INTERACTIVE PSYCHOLOGICAL THRILLER", enter:"ENTER THE STORY",
+    act:"ACT", scene:"Scene", tension:"TENSION",
+    trust:"TRUST", guilt:"GUILT", suspicion:"SUSPICION",
+    choicesLbl:"What does Mara do?",
+    loading:"The darkness stirs...", deepening:"The story deepens...",
+    endType:"— THE END —", restart:"Begin Again",
+    credits:"Powered by Groq + Ollama · Your choices shaped this ending",
+  },
+  hi: {
+    title:"मौन का भार", tagline:"कुछ सच्चाइयाँ वजह से दफन होती हैं।",
+    subtitle:"एक इंटरैक्टिव मनोवैज्ञानिक थ्रिलर", enter:"कहानी में प्रवेश करें",
+    act:"अंक", scene:"दृश्य", tension:"तनाव",
+    trust:"विश्वास", guilt:"अपराध", suspicion:"संदेह",
+    choicesLbl:"माया क्या करती है?",
+    loading:"अंधेरा हिलता है...", deepening:"कहानी गहरी होती है...",
+    endType:"— समाप्त —", restart:"फिर से शुरू करें",
+    credits:"Groq + Ollama द्वारा संचालित · आपके चुनावों ने यह अंत बनाया",
+  }
+};
+
+function applyHindi(id, on) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (on) el.classList.add('hindi-font');
+  else el.classList.remove('hindi-font');
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  const t = T[lang];
+  const hi = lang === 'hi';
+
+  // Toggle buttons
+  document.querySelectorAll('.lang-btn').forEach((b,i) => {
+    b.classList.toggle('active', (i===0&&lang==='en')||(i===1&&lang==='hi'));
+  });
+
+  // Intro
+  document.getElementById('i-title').innerHTML = t.title;
+  applyHindi('i-title', hi);
+  document.getElementById('i-tagline').textContent  = t.tagline;
+  applyHindi('i-tagline', hi);
+  document.getElementById('i-subtitle').textContent = t.subtitle;
+  applyHindi('i-subtitle', hi);
+  document.getElementById('i-enter').textContent    = t.enter;
+  applyHindi('i-enter', hi);
+
+  // Scene labels
+  document.getElementById('s-act-lbl').childNodes[0].textContent = t.act+' ';
+  document.getElementById('s-scene-lbl').childNodes[0].textContent = t.scene+' ';
+  document.getElementById('tension-lbl').textContent  = t.tension;
+  document.getElementById('lbl-trust').textContent    = t.trust;
+  document.getElementById('lbl-guilt').textContent    = t.guilt;
+  document.getElementById('lbl-susp').textContent     = t.suspicion;
+  document.getElementById('choices-lbl').textContent  = t.choicesLbl;
+  applyHindi('choices-lbl', hi);
+
+  // Narrative + chapter font
+  applyHindi('s-narrative', hi);
+  applyHindi('s-chapter', hi);
+
+  // Ending labels
+  document.getElementById('end-type').textContent    = t.endType;
+  document.getElementById('e-trust-lbl').textContent = t.trust;
+  document.getElementById('e-guilt-lbl').textContent = t.guilt;
+  document.getElementById('e-susp-lbl').textContent  = t.suspicion;
+  document.getElementById('restart-btn').textContent = t.restart;
+  applyHindi('restart-btn', hi);
+  document.getElementById('credits').textContent     = t.credits;
+  applyHindi('end-title', hi);
+  applyHindi('end-text', hi);
+}
+
+// ─── STATE ────────────────────────────────────────────────
+let history=[], sceneN=0, tension=15;
+const TOTAL=6;
+let stats={trust:50,guilt:20,suspicion:30};
+const ATMS={rain:'linear-gradient(160deg,#080812 0%,#0e0e1e 50%,#080e08 100%)',interrogation:'linear-gradient(160deg,#140808 0%,#2a1000 50%,#140808 100%)',revelation:'linear-gradient(160deg,#08100e 0%,#001020 60%,#100818 100%)',church:'linear-gradient(160deg,#0e0e14 0%,#14140a 50%,#0e0808 100%)',default:'linear-gradient(160deg,#09090e 0%,#12121a 100%)'};
+
+// ─── RAIN ─────────────────────────────────────────────────
+const canvas=document.getElementById('rain'),ctx=canvas.getContext('2d');
+let drops=[],rainOn=false;
+function initRain(){canvas.width=canvas.parentElement.offsetWidth||560;canvas.height=canvas.parentElement.offsetHeight||560;drops=Array.from({length:90},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,speed:7+Math.random()*6,len:9+Math.random()*14,op:0.15+Math.random()*0.45}));}
+function drawRain(){ctx.clearRect(0,0,canvas.width,canvas.height);drops.forEach(d=>{ctx.strokeStyle=`rgba(180,200,220,${d.op})`;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x-1,d.y+d.len);ctx.stroke();d.y+=d.speed;d.x-=0.5;if(d.y>canvas.height){d.y=-20;d.x=Math.random()*canvas.width;}});if(rainOn)requestAnimationFrame(drawRain);}
+function startRain(){if(!rainOn){rainOn=true;initRain();drawRain();}}
+
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',4000);}
+function updateStats(delta){if(!delta)return;stats.trust=clamp((stats.trust||50)+(delta.trust||0),0,100);stats.guilt=clamp((stats.guilt||20)+(delta.guilt||0),0,100);stats.suspicion=clamp((stats.suspicion||30)+(delta.suspicion||0),0,100);document.getElementById('sf-trust').style.width=stats.trust+'%';document.getElementById('sf-guilt').style.width=stats.guilt+'%';document.getElementById('sf-suspicion').style.width=stats.suspicion+'%';}
+function archetype(){if(stats.guilt>60)return'sacrifice';if(stats.trust>55)return'redemption';return'corruption';}
+
+// ─── RENDER SCENE ─────────────────────────────────────────
+function setScene(data) {
+  const hi = currentLang === 'hi';
+  document.getElementById('s-narrative').innerHTML = data.narrative || '...';
+  applyHindi('s-narrative', hi);
+  document.getElementById('s-chapter').textContent  = data.chapter  || '';
+  applyHindi('s-chapter', hi);
+  document.getElementById('s-location').textContent = data.location || 'Millhaven';
+  document.getElementById('s-icon').textContent     = data.icon || '🌑';
+  document.getElementById('s-num').textContent      = sceneN;
+  document.getElementById('s-counter').textContent  = sceneN+' / '+TOTAL;
+  document.getElementById('act-lbl').textContent    = sceneN<=2?'I':sceneN<=4?'II':'III';
+  document.getElementById('s-atm').style.background = ATMS[data.atmosphere]||ATMS.default;
+  tension=clamp(tension+(data.tension_increase||12),10,98);
+  document.getElementById('t-fill').style.width=tension+'%';
+  updateStats(data.stat_delta);
+
+  const el=document.getElementById('choices');
+  el.innerHTML='';
+  (data.choices||[]).forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className=hi?'c-btn hindi-font':'c-btn';
+    btn.textContent=c;
+    btn.onclick=()=>choose(c);
+    el.appendChild(btn);
+  });
+}
+
+function showEnding(data) {
+  document.getElementById('scene').style.display='none';
+  const arch=archetype();
+  const hi=currentLang==='hi';
+  document.getElementById('end-badge').textContent = arch.toUpperCase()+' ENDING';
+  document.getElementById('end-badge').className   = 'end-badge '+arch;
+  document.getElementById('end-title').textContent = data.ending_title||'The Truth Has a Price';
+  document.getElementById('end-text').textContent  = data.ending_text||data.narrative||'';
+  applyHindi('end-title', hi);
+  applyHindi('end-text', hi);
+  document.getElementById('end-trust').textContent = Math.round(stats.trust)+'%';
+  document.getElementById('end-guilt').textContent = Math.round(stats.guilt)+'%';
+  document.getElementById('end-susp').textContent  = Math.round(stats.suspicion)+'%';
+  document.getElementById('ending').style.display  = 'flex';
+}
+
+// ─── API CALL ─────────────────────────────────────────────
+async function generateScene(choice) {
+  sceneN++;
+  const t=T[currentLang];
+  document.getElementById('s-num').textContent     = sceneN;
+  document.getElementById('s-counter').textContent = sceneN+' / '+TOTAL;
+  document.getElementById('s-narrative').innerHTML = `<span class="loading">${t.deepening}</span>`;
+  document.getElementById('choices').innerHTML     = '';
+
+  const isFinal=sceneN>=TOTAL;
+  const arch=archetype();
+
+  const userMsg = history.length===0
+    ? `Scene 1: start`
+    : `Scene ${sceneN}. Player chose: "${choice}". trust=${stats.trust}, guilt=${stats.guilt}, suspicion=${stats.suspicion}. ${isFinal?`"${arch}" ending.`:'Continue.'}`;
+
+  history.push({role:"user",content:userMsg});
+
+  try {
+    const res=await fetch("/api/story",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        lang: currentLang,  // ← sends language to server
+        messages: history
+      })
+    });
+
+    if(!res.ok){const err=await res.json().catch(()=>({}));showToast("⚠ "+(err.error||"Server error"));document.getElementById('s-narrative').textContent="...";return;}
+
+    const raw=await res.json();
+    const text=(raw?.content?.[0]?.text)||'';
+    const clean=text.replace(/```json|```/g,'').trim();
+
+    let data={};
+    try{data=JSON.parse(clean);}
+    catch{
+      data={narrative:t.loading,choices:[currentLang==='hi'?"आगे बढ़ें":"Press forward",currentLang==='hi'?"रुकें":"Wait and listen"],chapter:currentLang==='hi'?"विराम":"The Pause",location:currentLang==='hi'?"मिलहेवन":"Millhaven",icon:"🌑",atmosphere:"default",tension_increase:8,stat_delta:{trust:0,guilt:0,suspicion:5}};
+    }
+
+    history.push({role:"assistant",content:clean});
+    if(isFinal)showEnding(data);
+    else setScene(data);
+
+  }catch(err){showToast("⚠ Cannot reach server.");document.getElementById('s-narrative').textContent="...";}
+}
+
+function choose(text){document.querySelectorAll('.c-btn').forEach(b=>b.disabled=true);generateScene(text);}
+
+function startMovie(){document.getElementById('intro').style.display='none';document.getElementById('scene').style.display='flex';startRain();generateScene(null);}
+
+function restartMovie(){history=[];sceneN=0;tension=15;stats={trust:50,guilt:20,suspicion:30};updateStats({});document.getElementById('ending').style.display='none';document.getElementById('scene').style.display='none';document.getElementById('intro').style.display='flex';}
+</script>
+</body>
+</html>

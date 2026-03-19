@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Weight of Silence | मौन का भार</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
+
+  <!-- DOMPurify: sanitize innerHTML from AI output -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#09090e;--surface:#111118;--surface2:#18181f;--border:#252530;
+      --gold:#c9a84c;--text:#e0dcd0;--muted:#706860;--dim:#4a4440;
+      --online:#4a9eff;--offline:#c05050;
+    }
+    body{
+      background:var(--bg);display:flex;align-items:center;justify-content:center;
+      min-height:100vh;font-family:'Crimson Text',serif
+    }
+    .hf{font-family:'Tiro Devanagari Hindi',serif!important}
+    #app{
+      width:100%;max-width:560px;background:var(--bg);color:var(--text);
+      position:relative;overflow:hidden;border:1px solid var(--border)
+    }
+    canvas#rain{
+      position:absolute;top:0;left:0;width:100%;height:100%;
+      pointer-events:none;z-index:1;opacity:0.3
+    }
+
+    .ctrl-bar{
+      position:absolute;top:10px;right:10px;z-index:10;
+      display:flex;gap:6px;align-items:center
+    }
+    .lang-bar{
+      display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden
+    }
+    .lang-btn{
+      background:transparent;border:none;color:var(--muted);
+      font-size:0.72rem;padding:0.25rem 0.65rem;cursor:pointer;transition:all 0.2s
+    }
+    .lang-btn.active{
+      background:rgba(201,168,76,0.15);color:var(--gold)
+    }
+    .icon-btn{
+      background:transparent;border:1px solid var(--border);color:var(--muted);
+      font-size:0.85rem;padding:0.2rem 0.5rem;cursor:pointer;border-radius:3px;
+      transition:all 0.2s;position:relative
+    }
+    .icon-btn.active{border-color:var(--gold);color:var(--gold)}
+    .icon-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+    .status-dot{
+      width:6px;height:6px;border-radius:50%;
+      position:absolute;top:2px;right:2px
+    }
+    .status-dot.online{background:var(--online)}
+    .status-dot.offline{background:var(--offline)}
+    .status-dot.checking{background:var(--muted);animation:pulse 1s infinite}
+
+    #intro{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:560px;text-align:center;padding:2.5rem;position:relative;z-index:2
+    }
+    .film-strip{display:flex;gap:5px;margin-bottom:2rem}
+    .fh{
+      width:16px;height:22px;border:1.5px solid var(--border);
+      border-radius:3px;background:var(--surface2)
+    }
+    h1{
+      font-size:2.4rem;color:var(--gold);letter-spacing:0.04em;
+      line-height:1.2;margin-bottom:0.35rem;font-family:'Playfair Display',serif
+    }
+    h1.hf{font-size:2.1rem}
+    .tagline{
+      font-style:italic;color:var(--muted);
+      font-size:1.1rem;margin-bottom:0.35rem
+    }
+    .subtitle{
+      font-size:0.68rem;letter-spacing:0.2em;color:var(--dim);
+      margin-bottom:2.5rem
+    }
+    .enter-btn{
+      background:transparent;border:1px solid var(--gold);color:var(--gold);
+      font-family:'Crimson Text',serif;font-size:1.05rem;
+      padding:0.7rem 2.6rem;cursor:pointer;letter-spacing:0.12em;
+      transition:all 0.3s;border-radius:1px
+    }
+    .enter-btn:hover{background:var(--gold);color:var(--bg)}
+
+    #scene{display:none;flex-direction:column;position:relative;z-index:2}
+    .s-header{
+      padding:0.8rem 1.4rem 0.6rem;border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between
+    }
+    .s-act{
+      font-size:0.67rem;letter-spacing:0.22em;color:var(--dim);
+      text-transform:uppercase
+    }
+    .s-num{
+      font-family:'Playfair Display',serif;font-size:1rem;color:var(--gold)
+    }
+    .s-chapter{
+      font-size:0.88rem;color:var(--text);
+      font-style:italic;font-family:'Playfair Display',serif
+    }
+    .s-chapter.hf{font-style:normal;font-size:0.85rem}
+    .t-bar{
+      display:flex;align-items:center;gap:6px;
+      font-size:0.67rem;letter-spacing:0.1em;color:var(--dim)
+    }
+    .t-track{
+      width:68px;height:3px;background:var(--surface2);
+      border-radius:2px;overflow:hidden
+    }
+    .t-fill{
+      height:100%;background:var(--gold);
+      border-radius:2px;transition:width 0.9s ease
+    }
+    .stat-row{
+      display:flex;gap:8px;padding:0.45rem 1.4rem;
+      border-bottom:1px solid var(--border)
+    }
+    .stat{
+      display:flex;align-items:center;gap:5px;
+      font-size:0.65rem;letter-spacing:0.08em;color:var(--muted)
+    }
+    .stat-track{
+      width:44px;height:2px;background:var(--surface2);
+      border-radius:1px;overflow:hidden
+    }
+    .stat-fill{
+      height:100%;border-radius:1px;transition:width 0.7s ease
+    }
+    .st{background:#4a9eff}.sg{background:#c05050}.ss{background:#b07020}
+
+    .s-visual{
+      height:180px;position:relative;overflow:hidden;flex-shrink:0
+    }
+    .s-atm{position:absolute;inset:0;transition:background 1.2s ease}
+    .s-img{
+      position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+      opacity:0;transition:opacity 1.5s ease;z-index:1
+    }
+    .s-img.loaded{opacity:1}
+    .s-img-loading{
+      position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;z-index:2;font-size:0.7rem;
+      letter-spacing:0.15em;color:var(--dim);background:transparent
+    }
+    .fog{
+      position:absolute;inset:0;
+      background:radial-gradient(ellipse at 50% 120%,rgba(20,20,40,0.85) 0%,transparent 65%);
+      pointer-events:none;z-index:3
+    }
+    .s-icon{
+      position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;font-size:2.8rem;opacity:0.3;z-index:2
+    }
+
+    .audio-bar{
+      display:flex;align-items:center;gap:8px;
+      padding:0.4rem 1.4rem;border-bottom:1px solid var(--border);
+      background:var(--surface)
+    }
+    .audio-status{
+      font-size:0.65rem;letter-spacing:0.1em;color:var(--dim);flex:1
+    }
+    .audio-wave{
+      display:flex;gap:2px;align-items:center;height:16px
+    }
+    .wave-bar{
+      width:2px;background:var(--gold);border-radius:1px;
+      animation:wave 0.8s infinite ease-in-out
+    }
+    .wave-bar:nth-child(1){height:6px}
+    .wave-bar:nth-child(2){animation-delay:0.1s;height:8px}
+    .wave-bar:nth-child(3){animation-delay:0.2s;height:12px}
+    .wave-bar:nth-child(4){animation-delay:0.3s;height:6px}
+    .wave-bar:nth-child(5){animation-delay:0.4s;height:10px}
+    @keyframes wave{
+      0%,100%{transform:scaleY(0.4)}
+      50%{transform:scaleY(1)}
+    }
+    .audio-wave.paused .wave-bar{
+      animation:none;transform:scaleY(0.4)
+    }
+
+    .s-body{padding:1.1rem 1.4rem 1rem}
+    .s-narrative{
+      font-size:1.05rem;line-height:1.85;color:var(--text);
+      margin-bottom:1.2rem;font-style:italic;
+      border-left:2px solid var(--gold);padding-left:1rem;min-height:80px
+    }
+    .s-narrative.hf{font-style:normal;font-size:1rem;line-height:2.1}
+    .loading{animation:pulse 1.4s infinite;color:var(--muted)}
+    @keyframes pulse{
+      0%,100%{opacity:0.4}
+      50%{opacity:1}
+    }
+
+    .choices-lbl{
+      font-size:0.67rem;letter-spacing:0.18em;
+      color:var(--dim);margin-bottom:0.7rem
+    }
+    .choices{display:flex;flex-direction:column;gap:0.5rem}
+    .c-btn{
+      background:var(--surface);border:1px solid var(--border);color:var(--text);
+      font-family:'Crimson Text',serif;font-size:0.95rem;
+      padding:0.65rem 1rem;text-align:left;cursor:pointer;border-radius:1px;
+      transition:all 0.2s;line-height:1.5
+    }
+    .c-btn.hf{font-size:0.88rem;line-height:1.8}
+    .c-btn:hover{
+      border-color:var(--gold);color:var(--gold);
+      background:rgba(201,168,76,0.04)
+    }
+    .c-btn:disabled{opacity:0.35;cursor:not-allowed}
+
+    .s-footer{
+      padding:0.5rem 1.4rem;border-top:1px solid var(--border);
+      display:flex;justify-content:space-between;
+      font-size:0.68rem;color:var(--dim)
+    }
+
+    #ending{
+      display:none;flex-direction:column;align-items:center;
+      justify-content:center;min-height:460px;
+      text-align:center;padding:2.5rem 1.8rem
+    }
+    .end-type{
+      font-size:0.67rem;letter-spacing:0.25em;
+      color:var(--dim);margin-bottom:0.8rem
+    }
+    .end-badge{
+      font-size:0.75rem;letter-spacing:0.15em;
+      padding:0.3rem 1.2rem;border-radius:1px;
+      display:inline-block;margin-bottom:1rem
+    }
+    .redemption{
+      color:#4a9eff;border:1px solid #4a9eff;
+      background:rgba(74,158,255,0.06)
+    }
+    .corruption{
+      color:#c05050;border:1px solid #c05050;
+      background:rgba(192,80,80,0.06)
+    }
+    .sacrifice{
+      color:#c9a84c;border:1px solid #c9a84c;
+      background:rgba(201,168,76,0.06)
+    }
+    .end-title{
+      font-family:'Playfair Display',serif;font-size:1.9rem;
+      color:var(--gold);margin-bottom:1rem;line-height:1.2
+    }
+    .end-title.hf{font-size:1.6rem}
+    .end-text{
+      font-style:italic;color:var(--text);line-height:1.85;
+      max-width:440px;margin:0 auto 1.2rem;font-size:1.02rem
+    }
+    .end-text.hf{font-style:normal;line-height:2.1;font-size:0.95rem}
+
+    .previously{
+      font-size:0.78rem;color:var(--muted);max-width:440px;
+      margin:0 auto 1.5rem;font-style:italic;border-top:1px solid var(--border);
+      padding-top:1rem;text-align:left;line-height:1.7
+    }
+    .previously-lbl{
+      font-size:0.62rem;letter-spacing:0.2em;
+      color:var(--dim);margin-bottom:0.4rem
+    }
+    .end-stats{
+      display:flex;gap:1.5rem;justify-content:center;
+      margin-bottom:2rem;font-size:0.8rem;color:var(--muted)
+    }
+    .end-stats span{color:var(--text)}
+    .restart-btn{
+      background:transparent;border:1px solid var(--dim);color:var(--muted);
+      font-size:0.95rem;padding:0.55rem 1.8rem;cursor:pointer;border-radius:1px;
+      transition:all 0.3s;font-family:'Crimson Text',serif
+    }
+    .restart-btn:hover{border-color:var(--text);color:var(--text)}
+    .credits{
+      font-size:0.67rem;color:var(--dim);
+      margin-top:1rem;letter-spacing:0.08em
+    }
+
+    #toast{
+      position:fixed;bottom:1.5rem;left:50%;
+      transform:translateX(-50%);background:#3a1010;
+      border:1px solid #c05050;color:#f0a0a0;font-size:0.9rem;
+      padding:0.6rem 1.4rem;border-radius:2px;
+      display:none;z-index:999
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <canvas id="rain"></canvas>
+  <audio id="bg-music" loop></audio>
+
+  <div class="ctrl-bar">
+    <button class="icon-btn" id="btn-audio" onclick="Audio.toggle()" title="Toggle Voice">
+      🔊<span class="status-dot checking" id="dot-audio"></span>
+    </button>
+    <button class="icon-btn" id="btn-music" onclick="Music.toggle()" title="Toggle Music">
+      🎵
+    </button>
+    <button class="icon-btn" id="btn-img" title="AI Images">
+      🖼️<span class="status-dot checking" id="dot-img"></span>
+    </button>
+    <div class="lang-bar">
+      <button class="lang-btn active" onclick="Lang.set('en')">EN</button>
+      <button class="lang-btn" onclick="Lang.set('hi')">हि</button>
+    </div>
+  </div>
+
+  <div id="intro">
+    <div class="film-strip">
+      <div class="fh"></div><div class="fh"></div><div class="fh"></div>
+      <div class="fh"></div><div class="fh"></div><div class="fh"></div>
+    </div>
+    <h1 id="i-title">The Weight<br>of Silence</h1>
+    <p class="tagline" id="i-tagline">Some truths are buried for a reason.</p>
+    <p class="subtitle" id="i-subtitle">AN INTERACTIVE PSYCHOLOGICAL THRILLER</p>
+    <button class="enter-btn" id="i-enter" onclick="Game.start()">ENTER THE STORY</button>
+  </div>
+
+  <div id="scene">
+    <div class="s-header">
+      <div>
+        <div class="s-act" id="s-act-lbl">ACT <span id="act-lbl">I</span></div>
+        <div class="s-num" id="s-scene-lbl">Scene <span id="s-num">1</span></div>
+      </div>
+      <div class="s-chapter" id="s-chapter">The Return</div>
+      <div class="t-bar">
+        <span id="tension-lbl">TENSION</span>
+        <div class="t-track">
+          <div class="t-fill" id="t-fill" style="width:15%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <span id="lbl-trust">TRUST</span>
+        <div class="stat-track"><div class="stat-fill st" id="sf-trust" style="width:50%"></div></div>
+      </div>
+      <div class="stat">
+        <span id="lbl-guilt">GUILT</span>
+        <div class="stat-track"><div class="stat-fill sg" id="sf-guilt" style="width:20%"></div></div>
+      </div>
+      <div class="stat">
+        <span id="lbl-susp">SUSPICION</span>
+        <div class="stat-track"><div class="stat-fill ss" id="sf-suspicion" style="width:30%"></div></div>
+      </div>
+    </div>
+
+    <div class="s-visual">
+      <div class="s-atm" id="s-atm"></div>
+      <div class="s-img-loading" id="img-loading">🎨 GENERATING...</div>
+      <img class="s-img" id="s-img" alt="scene">
+      <div class="fog"></div>
+      <div class="s-icon" id="s-icon">🌑</div>
+    </div>
+
+    <div class="audio-bar">
+      <div class="audio-wave paused" id="audio-wave">
+        <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+        <div class="wave-bar"></div><div class="wave-bar"></div>
+      </div>
+      <div class="audio-status" id="audio-status">Voice off</div>
+    </div>
+
+    <div class="s-body">
+      <div class="s-narrative" id="s-narrative">
+        <span class="loading">The darkness stirs...</span>
+      </div>
+      <div class="choices-lbl" id="choices-lbl">What does Mara do?</div>
+      <div class="choices" id="choices"></div>
+    </div>
+
+    <div class="s-footer">
+      <span id="s-location">Millhaven</span>
+      <span id="s-counter">1 / 6</span>
+    </div>
+  </div>
+
+  <div id="ending">
+    <div class="end-type" id="end-type">— THE END —</div>
+    <div class="end-badge" id="end-badge">REDEMPTION ENDING</div>
+    <div class="end-title" id="end-title"></div>
+    <div class="end-text" id="end-text"></div>
+
+    <div class="previously" id="previously-section" style="display:none">
+      <div class="previously-lbl" id="previously-lbl">PREVIOUSLY ON YOUR JOURNEY</div>
+      <div id="previously-text"></div>
+    </div>
+
+    <div class="end-stats">
+      <div><span id="e-trust-lbl">TRUST</span> <span id="end-trust">—</span></div>
+      <div><span id="e-guilt-lbl">GUILT</span> <span id="end-guilt">—</span></div>
+      <div><span id="e-susp-lbl">SUSPICION</span> <span id="end-susp">—</span></div>
+    </div>
+
+    <button class="restart-btn" id="restart-btn" onclick="Game.restart()">Begin Again</button>
+    <div class="credits" id="credits">Powered by Groq + Ollama · AI Images + Voice</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* TRANSLATIONS */
+const T = {
+  en: {
+    title:"The Weight<br>of Silence",
+    tagline:"Some truths are buried for a reason.",
+    subtitle:"AN INTERACTIVE PSYCHOLOGICAL THRILLER",
+    enter:"ENTER THE STORY",
+    act:"ACT",
+    scene:"Scene",
+    tension:"TENSION",
+    trust:"TRUST",
+    guilt:"GUILT",
+    suspicion:"SUSPICION",
+    choicesLbl:"What does Mara do?",
+    loading:"The darkness stirs...",
+    deepening:"The story deepens...",
+    endType:"— THE END —",
+    restart:"Begin Again",
+    credits:"Powered by Groq + Ollama · AI Images + Voice",
+    imgGen:"🎨 GENERATING SCENE...",
+    previously:"PREVIOUSLY ON YOUR JOURNEY",
+    archetypes:{
+      redemption:"REDEMPTION ENDING",
+      corruption:"CORRUPTION ENDING",
+      sacrifice:"SACRIFICE ENDING"
+    },
+    fallbackChoices:[
+      "Press forward into the dark",
+      "Wait and listen to the silence"
+    ]
+  },
+  hi: {
+    title:"मौन का भार",
+    tagline:"कुछ सच्चाइयाँ वजह से दफन होती हैं।",
+    subtitle:"एक इंटरैक्टिव मनोवैज्ञानिक थ्रिलर",
+    enter:"कहानी में प्रवेश करें",
+    act:"अंक",
+    scene:"दृश्य",
+    tension:"तनाव",
+    trust:"विश्वास",
+    guilt:"अपराध",
+    suspicion:"संदेह",
+    choicesLbl:"माया क्या करती है?",
+    loading:"अंधेरा हिलता है...",
+    deepening:"कहानी गहरी होती है...",
+    endType:"— समाप्त —",
+    restart:"फिर से शुरू करें",
+    credits:"Groq + Ollama द्वारा संचालित · AI छवि + आवाज़",
+    imgGen:"🎨 दृश्य बन रहा है...",
+    previously:"आपकी यात्रा में पहले",
+    archetypes:{
+      redemption:"मुक्ति का अंत",
+      corruption:"पतन का अंत",
+      sacrifice:"बलिदान का अंत"
+    },
+    fallbackChoices:[
+      "अंधेरे में आगे बढ़ें",
+      "रुकें और सुनें"
+    ]
+  }
+};
+
+/* CONFIG */
+let CONFIG_FRONT = {
+  total: 6,
+  archetypeThresholds: { guilt: 60, trust: 55 }
+};
+
+async function loadConfig() {
+  try {
+    const r = await fetch("/api/config");
+    if (r.ok) CONFIG_FRONT = { ...CONFIG_FRONT, ...(await r.json()) };
+  } catch (e) {}
+}
+
+/* LANG MODULE */
+const Lang = (() => {
+  let current = localStorage.getItem("lang") || "en";
+
+  function hi(id, on) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hf", on);
+  }
+
+  function set(lang) {
+    current = lang;
+    localStorage.setItem("lang", lang);
+    const t = T[lang], isHi = lang === "hi";
+
+    document
+      .querySelectorAll(".lang-btn")
+      .forEach((b, i) =>
+        b.classList.toggle(
+          "active",
+          (i === 0 && lang === "en") || (i === 1 && lang === "hi")
+        )
+      );
+
+    document.getElementById("i-title").innerHTML = t.title;
+    hi("i-title", isHi);
+    document.getElementById("i-tagline").textContent = t.tagline;
+    hi("i-tagline", isHi);
+    document.getElementById("i-subtitle").textContent = t.subtitle;
+    document.getElementById("i-enter").textContent = t.enter;
+    hi("i-enter", isHi);
+
+    document.getElementById("s-act-lbl").childNodes[0].textContent = t.act + " ";
+    document.getElementById("s-scene-lbl").childNodes[0].textContent = t.scene + " ";
+    document.getElementById("tension-lbl").textContent = t.tension;
+    document.getElementById("lbl-trust").textContent = t.trust;
+    document.getElementById("lbl-guilt").textContent = t.guilt;
+    document.getElementById("lbl-susp").textContent = t.suspicion;
+    document.getElementById("choices-lbl").textContent = t.choicesLbl;
+
+    hi("choices-lbl", isHi);
+    hi("s-narrative", isHi);
+    hi("s-chapter", isHi);
+
+    document.getElementById("end-type").textContent = t.endType;
+    document.getElementById("e-trust-lbl").textContent = t.trust;
+    document.getElementById("e-guilt-lbl").textContent = t.guilt;
+    document.getElementById("e-susp-lbl").textContent = t.suspicion;
+    document.getElementById("restart-btn").textContent = t.restart;
+
+    hi("restart-btn", isHi);
+    document.getElementById("credits").textContent = t.credits;
+    document.getElementById("previously-lbl").textContent = t.previously;
+    hi("end-title", isHi);
+    hi("end-text", isHi);
+    hi("previously-text", isHi);
+  }
+
+  function get() { return current; }
+  function trans() { return T[current]; }
+
+  return { set, get, trans };
+})();
+
+/* AUDIO MODULE */
+const Audio = (() => {
+  let enabled = localStorage.getItem("audio") === "1";
+  let synth = window.speechSynthesis;
+  let utt = null;
+  let online = false;
+
+  function setStatus(msg, playing = false) {
+    const statusEl = document.getElementById("audio-status");
+    const wave = document.getElementById("audio-wave");
+    if (statusEl) statusEl.textContent = msg;
+    if (wave) wave.classList.toggle("paused", !playing);
+  }
+
+  function setDot(state) {
+    const d = document.getElementById("dot-audio");
+    if (d) d.className = `status-dot ${state}`;
+  }
+
+  async function checkServer() {
+    try {
+      const r = await fetch("/internal/audio/health", { signal: AbortSignal.timeout(2000) });
+      online = (await r.json()).status === "ok";
+    } catch {
+      online = false;
+    }
+    setDot(online ? "online" : "offline");
+    return online;
+  }
+
+  async function speak(text, lang) {
+    if (!enabled || !text) return;
+    if (utt) synth.cancel();
+
+    if (online) {
+      try {
+        const res = await fetch("/internal/audio/narrate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, lang })
+        });
+        const data = await res.json();
+        if (data.audio) {
+          setStatus("🔊 Kokoro TTS", true);
+          const a = new window.Audio(`data:${data.mime};base64,${data.audio}`);
+          a.onended = () => setStatus("✅ Complete");
+          a.play();
+          return;
+        }
+      } catch (e) {
+        console.warn("Audio server:", e);
+      }
+    }
+
+    if ("speechSynthesis" in window) {
+      setStatus("🔊 Speaking...", true);
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang === "hi" ? "hi-IN" : "en-US";
+      u.rate = 0.88;
+      u.pitch = 0.95;
+      u.volume = 0.9;
+
+      const voices = synth.getVoices();
+      const voice =
+        voices.find(v => v.lang.startsWith(lang === "hi" ? "hi" : "en") && v.localService) ||
+        voices.find(v => v.lang.startsWith(lang === "hi" ? "hi" : "en"));
+
+      if (voice) u.voice = voice;
+      u.onstart = () => setStatus("🔊 Narrating...", true);
+      u.onend = () => setStatus("✅ Complete");
+      u.onerror = () => setStatus("⚠ Voice unavailable");
+      utt = u;
+      synth.speak(u);
+    } else {
+      setStatus("⚠ No TTS available");
+    }
+  }
+
+  function toggle() {
+    enabled = !enabled;
+    localStorage.setItem("audio", enabled ? "1" : "0");
+    const btn = document.getElementById("btn-audio");
+    if (btn) btn.classList.toggle("active", enabled);
+    if (!enabled && utt) {
+      synth.cancel();
+      setStatus("🔇 Voice off");
+    } else if (enabled) {
+      setStatus("🔊 Voice on");
+    }
+  }
+
+  function stop() {
+    if (utt) synth.cancel();
+  }
+
+  return { speak, toggle, checkServer, stop, isOnline: () => online, setStatus };
+})();
+
+/* MUSIC MODULE */
+const Music = (() => {
+  let enabled = localStorage.getItem("music") === "1";
+  let current = "";
+  const el = () => document.getElementById("bg-music");
+
+  const URLS = {
+    rain: "https://cdn.pixabay.com/download/audio/2022/03/10/audio_8cb749ac9b.mp3",
+    interrogation: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1bab.mp3",
+    revelation: "https://cdn.pixabay.com/download/audio/2021/11/01/audio_50134e5a5a.mp3",
+    church: "https://cdn.pixabay.com/download/audio/2022/02/07/audio_9b7805998c.mp3",
+    default: "https://cdn.pixabay.com/download/audio/2022/03/10/audio_8cb749ac9b.mp3"
+  };
+
+  function play(atmosphere) {
+    if (!enabled || atmosphere === current) return;
+    current = atmosphere;
+    const m = el();
+    if (!m) return;
+    m.src = URLS[atmosphere] || URLS.default;
+    m.volume = 0.15;
+    m.play().catch(() => {
+      Audio.setStatus?.("🎵 Click to enable music");
+    });
+  }
+
+  function toggle() {
+    enabled = !enabled;
+    localStorage.setItem("music", enabled ? "1" : "0");
+    const btn = document.getElementById("btn-music");
+    if (btn) btn.classList.toggle("active", enabled);
+    const m = el();
+    if (!m) return;
+    if (enabled) {
+      m.play().catch(() => {});
+    } else {
+      m.pause();
+    }
+  }
+
+  function stop() {
+    const m = el();
+    if (m) m.pause();
+    current = "";
+  }
+
+  return { play, toggle, stop };
+})();
+
+/* IMAGE MODULE */
+const ImageService = (() => {
+  let online = false;
+  const ATMS = {
+    rain: "linear-gradient(160deg,#080812 0%,#0e0e1e 50%,#080e08 100%)",
+    interrogation: "linear-gradient(160deg,#140808 0%,#2a1000 50%,#140808 100%)",
+    revelation: "linear-gradient(160deg,#08100e 0%,#001020 60%,#100818 100%)",
+    church: "linear-gradient(160deg,#0e0e14 0%,#14140a 50%,#0e0808 100%)",
+    default: "linear-gradient(160deg,#09090e 0%,#12121a 100%)"
+  };
+
+  async function checkServer() {
+    try {
+      const r = await fetch("/internal/image/health", { signal: AbortSignal.timeout(2000) });
+      online = (await r.json()).status === "ok";
+    } catch {
+      online = false;
+    }
+    const dot = document.getElementById("dot-img");
+    if (dot) dot.className = `status-dot ${online ? "online" : "offline"}`;
+    return online;
+  }
+
+  async function load(atmosphere, chapter, location) {
+    const imgEl = document.getElementById("s-img");
+    const loadEl = document.getElementById("img-loading");
+    const atmEl = document.getElementById("s-atm");
+    const t = Lang.trans();
+
+    if (!imgEl || !loadEl || !atmEl) return;
+
+    imgEl.classList.remove("loaded");
+    imgEl.removeAttribute("src");
+    loadEl.style.display = "flex";
+    loadEl.textContent = t.imgGen;
+    atmEl.style.background = ATMS[atmosphere] || ATMS.default;
+
+    const finish = () => {
+      loadEl.style.display = "none";
+      imgEl.classList.add("loaded");
+    };
+
+    if (online) {
+      try {
+        const res = await fetch("/internal/image/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ atmosphere, chapter, location })
+        });
+        const data = await res.json();
+        if (data.image) {
+          imgEl.onload = finish;
+          imgEl.onerror = () => { finish(); };
+          imgEl.src = `data:image/png;base64,${data.image}`;
+          return;
+        }
+      } catch (e) {
+        console.warn("Image:", e);
+      }
+    }
+
+    finish();
+  }
+
+  return { load, checkServer, atms: ATMS };
+})();
+
+/* RAIN MODULE */
+const Rain = (() => {
+  const canvas = document.getElementById("rain");
+  const ctx = canvas.getContext("2d");
+  let drops = [], on = false;
+
+  function init() {
+    canvas.width = canvas.parentElement.offsetWidth || 560;
+    canvas.height = canvas.parentElement.offsetHeight || 700;
+    drops = Array.from({ length: 90 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      speed: 7 + Math.random() * 6,
+      len: 9 + Math.random() * 14,
+      op: 0.15 + Math.random() * 0.45
+    }));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drops.forEach(d => {
+      ctx.strokeStyle = `rgba(180,200,220,${d.op})`;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - 1, d.y + d.len);
+      ctx.stroke();
+      d.y += d.speed;
+      d.x -= 0.5;
+      if (d.y > canvas.height) {
+        d.y = -20;
+        d.x = Math.random() * canvas.width;
+      }
+    });
+    if (on) requestAnimationFrame(draw);
+  }
+
+  function start() {
+    if (!on) {
+      on = true;
+      init();
+      draw();
+    }
+  }
+
+  return { start };
+})();
+
+/* GAME MODULE */
+const Game = (() => {
+  let history = [], sceneN = 0, tension = 15;
+  let stats = { trust: 50, guilt: 20, suspicion: 30 };
+  let choiceLog = [];
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function archetype() {
+    const t = CONFIG_FRONT.archetypeThresholds;
+    if (stats.guilt > t.guilt) return "sacrifice";
+    if (stats.trust > t.trust) return "redemption";
+    return "corruption";
+  }
+
+  function updateStats(delta) {
+    if (!delta) delta = {};
+    stats.trust = clamp((stats.trust || 50) + (delta.trust || 0), 0, 100);
+    stats.guilt = clamp((stats.guilt || 20) + (delta.guilt || 0), 0, 100);
+    stats.suspicion = clamp((stats.suspicion || 30) + (delta.suspicion || 0), 0, 100);
+    document.getElementById("sf-trust").style.width = stats.trust + "%";
+    document.getElementById("sf-guilt").style.width = stats.guilt + "%";
+    document.getElementById("sf-suspicion").style.width = stats.suspicion + "%";
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 4000);
+  }
+
+  function renderScene(data) {
+    const t = Lang.trans(), hi = Lang.get() === "hi";
+    const el = id => document.getElementById(id);
+
+    const narrative = (data && data.narrative) || "...";
+    el("s-narrative").innerHTML = DOMPurify.sanitize(narrative);
+    el("s-narrative").classList.toggle("hf", hi);
+
+    el("s-chapter").textContent = data.chapter || "";
+    el("s-chapter").classList.toggle("hf", hi);
+    el("s-location").textContent = data.location || "Millhaven";
+    el("s-icon").textContent = data.icon || "🌑";
+
+    el("s-num").textContent = sceneN;
+    el("s-counter").textContent = sceneN + " / " + CONFIG_FRONT.total;
+    el("act-lbl").textContent = sceneN <= 2 ? "I" : sceneN <= 4 ? "II" : "III";
+
+    tension = clamp(tension + (data.tension_increase || 12), 10, 98);
+    el("t-fill").style.width = tension + "%";
+
+    updateStats(data.stat_delta || {});
+
+    ImageService.load(data.atmosphere || "default", data.chapter || "", data.location || "Millhaven");
+    Music.play(data.atmosphere || "default");
+    Audio.speak(narrative, Lang.get());
+
+    const choicesEl = el("choices");
+    choicesEl.innerHTML = "";
+    const choices = data.choices && data.choices.length ? data.choices : t.fallbackChoices;
+    choices.forEach(c => {
+      const btn = document.createElement("button");
+      btn.className = hi ? "c-btn hf" : "c-btn";
+      btn.textContent = c;
+      btn.onclick = () => choose(c);
+      choicesEl.appendChild(btn);
+    });
+  }
+
+  function showEnding(data) {
+    document.getElementById("scene").style.display = "none";
+    const arch = archetype(), t = Lang.trans(), hi = Lang.get() === "hi";
+    const el = id => document.getElementById(id);
+
+    el("end-badge").textContent = t.archetypes[arch] || arch.toUpperCase();
+    el("end-badge").className = "end-badge " + arch;
+    el("end-title").textContent = data.ending_title || "The Truth Has a Price";
+    el("end-text").textContent = data.ending_text || data.narrative || "";
+    el("end-title").classList.toggle("hf", hi);
+    el("end-text").classList.toggle("hf", hi);
+
+    el("end-trust").textContent = Math.round(stats.trust) + "%";
+    el("end-guilt").textContent = Math.round(stats.guilt) + "%";
+    el("end-susp").textContent = Math.round(stats.suspicion) + "%";
+
+    if (choiceLog.length > 0) {
+      const prevEl = el("previously-section");
+      const prevTxt = el("previously-text");
+      prevEl.style.display = "block";
+      prevTxt.textContent = choiceLog.map((c, i) => `${i + 1}. ${c}`).join(" → ");
+      prevTxt.classList.toggle("hf", hi);
+    }
+
+    el("ending").style.display = "flex";
+    Audio.speak(data.ending_text || data.narrative || "", Lang.get());
+  }
+
+  async function generateScene(choice) {
+    sceneN++;
+    const t = Lang.trans();
+    const el = id => document.getElementById(id);
+
+    el("s-num").textContent = sceneN;
+    el("s-counter").textContent = sceneN + " / " + CONFIG_FRONT.total;
+    el("s-narrative").innerHTML = `<span class="loading">${t.deepening}</span>`;
+    el("choices").innerHTML = "";
+    Audio.stop();
+
+    const isFinal = sceneN >= CONFIG_FRONT.total;
+    const arch = archetype();
+    const userMsg =
+      history.length === 0
+        ? "Scene 1: start"
+        : `Scene ${sceneN}. Player chose: "${choice}". trust=${stats.trust}, guilt=${stats.guilt}, suspicion=${stats.suspicion}. ${isFinal ? `${arch} ending.` : "Continue."}`;
+    history.push({ role: "user", content: userMsg });
+
+    try {
+      const res = await fetch("/api/story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: Lang.get(), messages: history })
+      });
+      if (!res.ok) {
+        showToast("⚠ Server error");
+        return;
+      }
+      const raw = await res.json();
+      const text = raw?.content?.[0]?.text || "";
+      let data = {};
+      try {
+        const cleaned = text.replace(/```json|```/g, "").trim();
+        data = JSON.parse(cleaned);
+      } catch {
+        data = {
+          narrative: t.loading,
+          choices: t.fallbackChoices,
+          chapter: "...",
+          location: "Millhaven",
+          icon: "🌑",
+          atmosphere: "default",
+          tension_increase: 8,
+          stat_delta: { trust: 0, guilt: 0, suspicion: 5 }
+        };
+      }
+      history.push({ role: "assistant", content: text });
+      if (isFinal) showEnding(data);
+      else renderScene(data);
+    } catch {
+      showToast("⚠ Cannot reach server.");
+    }
+  }
+
+  function choose(text) {
+    document.querySelectorAll(".c-btn").forEach(b => b.disabled = true);
+    choiceLog.push(text.slice(0, 40));
+    generateScene(text);
+  }
+
+  async function start() {
+    await loadConfig();
+    document.getElementById("intro").style.display = "none";
+    document.getElementById("scene").style.display = "flex";
+    Rain.start();
+    await Promise.all([Audio.checkServer(), ImageService.checkServer()]);
+    Lang.set(Lang.get());
+    generateScene(null);
+  }
+
+  function restart() {
+    history = [];
+    sceneN = 0;
+    tension = 15;
+    choiceLog = [];
+    stats = { trust: 50, guilt: 20, suspicion: 30 };
+    updateStats({});
+    Audio.stop();
+    Music.stop();
+    document.getElementById("ending").style.display = "none";
+    document.getElementById("scene").style.display = "none";
+    document.getElementById("intro").style.display = "flex";
+    document.getElementById("previously-section").style.display = "none";
+  }
+
+  return { start, restart };
+})();
+
+Lang.set(localStorage.getItem("lang") || "en");
+window.speechSynthesis?.getVoices();
+window.speechSynthesis?.addEventListener("voiceschanged", () => window.speechSynthesis.getVoices());
+</script>
+</body>
+</html>

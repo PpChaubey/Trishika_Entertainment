@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "node-fetch": "^3.3.2"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "name": "movi",
+  "description": "An interactive psychological thriller powered by **Grok AI** (xAI).",
+  "version": "1.0.0",
+  "main": "server.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module"
+}
