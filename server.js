@@ -3,7 +3,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
 import "dotenv/config";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -130,19 +129,6 @@ const PROMPTS = {
 // ─── EXPRESS APP ──────────────────────────────────────────
 const app = express();
 app.set("trust proxy", 1);
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      mediaSrc: ["'self'", "https://cdn.pixabay.com", "https://assets.mixkit.co"],
-      connectSrc: ["'self'"],
-    },
-  },
-}));
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || "*", methods: ["GET", "POST"] }));
 app.use(express.json({ limit: "50kb" }));
 app.use(express.static("."));
