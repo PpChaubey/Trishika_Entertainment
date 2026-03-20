@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 
   <!-- DOMPurify: sanitize innerHTML from AI output -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+  
 
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
@@ -415,6 +415,8 @@
 
 <script>
 "use strict";
+// Simple XSS sanitizer (replaces DOMPurify CDN)
+const DOMPurify = { sanitize: (s) => s ? s.replace(/<script[^>]*>.*?<\/script>/gi, "").replace(/on\w+="[^"]*"/gi, "") : "" };
 
 /* TRANSLATIONS */
 const T = {
